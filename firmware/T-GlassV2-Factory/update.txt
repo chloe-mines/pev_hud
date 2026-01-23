@@ -1,0 +1,4 @@
+2025.1.3
+v1.1:
+增加麦克风和wifi rssi显示
+修复set、set_tileview的微调不能移动BUG
