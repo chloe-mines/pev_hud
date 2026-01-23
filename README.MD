@@ -1,4 +1,4 @@
-<h1 align = "center">🌟LilyGO T-Wristband and T-Glass🌟</h1>
+<h1 align = "center">LilyGO T-Wristband and T-Glass</h1>
 
 ## News
 - **T-Glass** has two versions, the initial preview version and **T-GlassV2** version (modified prism reflection method). The difference between the two is only the display method, the hardware is the same
@@ -6,7 +6,7 @@
 - `LilyGO T-Wristband and T-Glass` depends on lvgl **v8.4.x** version. Currently lvgl has released lvgl **v9.0** version. When compilation error occurs, please check whether lvgl belongs to **v8.4.x**
 - The visual size of T-Wristband and T-Glass is different from the actual screen size. All examples are based on the lvgl graphics framework. Other image frameworks such as TFT_eSPI are not available here.
 
-## 1️⃣Support Product
+## Support Product
 
 | Product(PinMap)  | SOC            | Flash | PSRAM     | Resolution | Visible Area |
 | ---------------- | -------------- | ----- | --------- | ---------- | ------------ |
@@ -18,7 +18,7 @@
 
 [1]: https://www.lilygo.cc/products/t-glass
 
-## 2️⃣Examples
+## Examples
 
 ```txt
 ./examples/
@@ -29,7 +29,7 @@
 
 ```
 
-## 3️⃣ PlatformIO Quick Start (Recommended)
+## PlatformIO Quick Start (Recommended)
 
 1. Install [Visual Studio Code](https://code.visualstudio.com/) and [Python](https://www.python.org/)
 2. Search for the `PlatformIO` plugin in the `VisualStudioCode` extension and install it.
@@ -44,7 +44,7 @@
 11. Click (plug symbol) to monitor serial output
 12. If it cannot be written, or the USB device keeps flashing, please check the **FAQ** below
 
-## 4️⃣ Install from Arduino Library Manager (recommended)
+## Install from Arduino Library Manager (recommended)
 
 1. Install [Arduino IDE](https://www.arduino.cc/en/software)
 2. Install [Arduino ESP32 V 2.0.5 or above and below V3.0](https://docs.espressif.com/projects/arduino-esp32/en/latest/getting_started.html), Library based on the Stable version, Please make sure the link in Boards Manager is
@@ -83,7 +83,7 @@
 10. Click `upload` , Wait for compilation and writing to complete
 11. If it cannot be written, or the USB device keeps flashing, please check the **FAQ** below
 
-## 5️⃣ Arduino IDE Manual installation (not recommended)
+## Arduino IDE Manual installation (not recommended)
 
 1. Install [Arduino IDE](https://www.arduino.cc/en/software)
 2. Install [Arduino ESP32 V 2.0.5 or above and below V3.0](https://docs.espressif.com/projects/arduino-esp32/en/latest/getting_started.html), Library based on the Stable version, Please make sure the link in Boards Manager is
@@ -120,7 +120,7 @@
 8. Click `upload` , Wait for compilation and writing to complete
 9. If it cannot be written, or the USB device keeps flashing, please check the **FAQ** below
 
-# 6️⃣ ESP32 basic examples
+# ESP32 basic examples
 
 - [BLE Examples](https://github.com/espressif/arduino-esp32/tree/master/libraries/BLE)
 - [WiFi Examples](https://github.com/espressif/arduino-esp32/tree/master/libraries/WiFi)
@@ -128,7 +128,7 @@
 - [FFat Examples](https://github.com/espressif/arduino-esp32/tree/master/libraries/FFat)
 - For more examples of esp32 chip functions, please refer to [arduino-esp32-libraries](https://github.com/espressif/arduino-esp32/tree/master/libraries)
 
-# 7️⃣ FAQ
+# FAQ
 
 1. The board uses USB as the **JTAG** upload port. When printing serial port information on **USB_CDC_ON_BOOT** configuration needs to be turned on.
    If the port cannot be found when uploading the program or the USB has been used for other functions, the port does not appear.
@@ -170,7 +170,7 @@
     amoled.setRotation(3);
    ```
 
-# 8️⃣ Resource
+# Resource
 
 | Product(PinMap)  | schematic                                                   |
 | ---------------- | ----------------------------------------------------------- |
@@ -183,7 +183,7 @@
 - [BHI260AP](https://www.bosch-sensortec.com/products/smart-sensor-systems/bhi260ap/)
 - [PCF85063A](https://www.nxp.com/products/analog-and-mixed-signal/real-time-clocks/rtcs-with-ic-bus/tiny-real-time-clock-calendar-with-alarm-function-and-ic-bus:PCF85063A)
 
-# 8️⃣ Depends on required libraries
+# Depends on required libraries
 
 - [SensorLib 0.1.8](https://github.com/lewisxhe/SensorsLib)
 - [lvgl 8.4.0](https://github.com/lvgl/lvgl/tree/release/v8.4)
