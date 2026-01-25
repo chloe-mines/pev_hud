@@ -63,6 +63,7 @@ DATE: January 2026
 #include <LV_Helper.h>
 #include "NimBLEDevice.h"
 #include <EEPROM.h>
+#include <nvs_flash.h>
 
 // RaceBox BLE UUIDs
 const char* UART_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
@@ -144,7 +145,9 @@ enum DisplayMode {
   DISPLAY_LAP_DEBUG,   // Distance + lap timer combined (2 lines)
   DISPLAY_LAP_SPEED,   // Lap timer + speed combined (2 lines, no timeout)
   DISPLAY_LAP_FLASH,   // Temporary lap time display ("LAP TIME:" + time)
-  DISPLAY_LAP_DELTA   // Delta comparison display (delta + time)
+  DISPLAY_LAP_DELTA,  // Delta comparison display (delta + time)
+  DISPLAY_RESET,      // Reset menu option
+  DISPLAY_RESET_CONFIRM // "SURE?" confirmation for reset
 };
 DisplayMode currentDisplayMode = DISPLAY_SPEED;
 
@@ -162,6 +165,7 @@ const unsigned long scanTimeout = 10000; // 10 seconds scan timeout
 // Display Mode Variables
 unsigned long lastDisplayModeChange = 0;
 const unsigned long displayModeTimeout = 10000; // 10 seconds auto-return to speed
+unsigned long displayModeStartTime = 0; // For reset confirmation timeout
 unsigned long lastButtonPress = 0;
 const unsigned long buttonDebounce = 50; // 50ms button debounce
 const unsigned long longPressDuration = 500; // 500ms threshold for long press
@@ -257,6 +261,49 @@ class MyClientCallback : public NimBLEClientCallbacks {
     Serial.println("Disconnected from RaceBox");
   }
 };
+
+// Reset function to clear BLE cache and reboot
+void performSystemReset() {
+    Serial.println("*** PERFORMING SYSTEM RESET ***");
+    
+    // Show reset in progress
+    lv_label_set_text(number_label, "RESET..");
+    lv_timer_handler();
+    amoled.update();
+    delay(1000);
+    
+    // Clear BLE bonds and deinitialize
+    Serial.println("Clearing BLE bonds...");
+    if (connected) {
+        // Disconnect first if connected
+        NimBLEDevice::getClientList()->front()->disconnect();
+        delay(500);
+    }
+    
+    // Delete all BLE bonds
+    NimBLEDevice::deleteAllBonds();
+    delay(500);
+    
+    // Deinitialize BLE stack
+    NimBLEDevice::deinit();
+    delay(500);
+    
+    // Clear NVS (Non-Volatile Storage)
+    Serial.println("Clearing NVS...");
+    nvs_flash_erase();
+    delay(500);
+    
+    // Show completion
+    lv_label_set_text(number_label, "DONE!");
+    lv_timer_handler();
+    amoled.update();
+    delay(1000);
+    
+    Serial.println("*** RESET COMPLETE - REBOOTING ***");
+    
+    // Restart the ESP32
+    ESP.restart();
+}
 
 // Calculate distance between two GPS points using Haversine formula
 double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -424,8 +471,8 @@ void setDisplayFont(bool useLargeFont) {
 void handleLongPress() {
     unsigned long currentTime = millis();
     
-    // Only handle button in connected state
-    if (currentState != STATE_CONNECTED) {
+    // Allow RESET option even when not connected, but other menus need connection
+    if (currentState != STATE_CONNECTED && currentDisplayMode != DISPLAY_SPEED && currentDisplayMode != DISPLAY_RESET && currentDisplayMode != DISPLAY_RESET_CONFIRM) {
         return;
     }
 
@@ -433,7 +480,12 @@ void handleLongPress() {
     
     switch (currentDisplayMode) {
         case DISPLAY_SPEED:
-            currentDisplayMode = DISPLAY_LAP_CTRL;
+            if (currentState == STATE_CONNECTED) {
+                currentDisplayMode = DISPLAY_LAP_CTRL;
+            } else {
+                // When not connected, go directly to RESET option
+                currentDisplayMode = DISPLAY_RESET;
+            }
             break;
         case DISPLAY_LAP_CTRL:
             currentDisplayMode = DISPLAY_BATTERY;
@@ -455,6 +507,10 @@ void handleLongPress() {
             currentDisplayMode = DISPLAY_LAP_SPEED;
             break;
         case DISPLAY_LAP_SPEED:
+            currentDisplayMode = DISPLAY_RESET;
+            break;
+        case DISPLAY_RESET:
+        case DISPLAY_RESET_CONFIRM:
             currentDisplayMode = DISPLAY_SPEED;
             break;
         case DISPLAY_SET_LINE:
@@ -482,13 +538,22 @@ void handleLongPress() {
     
     lastDisplayModeChange = millis();
     isLapFlashing = false;
+    
+    Serial.print("Long press: Changed from mode ");
+    Serial.print((int)previousMode);
+    Serial.print(" to mode ");
+    Serial.println((int)currentDisplayMode);
+    
+    // Force display update immediately
+    updateDisplayContent();
     updateDisplayContent();
     Serial.printf("Long press: %d -> %d\n", previousMode, currentDisplayMode);
 }
 
 // Handle double tap (lap timing functions)
 void handleDoubleTap() {
-    if (currentState != STATE_CONNECTED) {
+    // Allow RESET functionality even when not connected
+    if (currentState != STATE_CONNECTED && currentDisplayMode != DISPLAY_RESET && currentDisplayMode != DISPLAY_RESET_CONFIRM) {
         return;
     }
     
@@ -520,6 +585,16 @@ void handleDoubleTap() {
             // Switch back to single battery display
             currentDisplayMode = DISPLAY_BATTERY;
             Serial.println("Switching to single battery display");
+            break;
+        case DISPLAY_RESET:
+            // Double tap in reset mode - show confirmation
+            currentDisplayMode = DISPLAY_RESET_CONFIRM;
+            displayModeStartTime = millis();
+            Serial.println("Reset confirmation requested");
+            break;
+        case DISPLAY_RESET_CONFIRM:
+            // Double tap in reset confirmation - execute reset
+            performSystemReset();
             break;
         default:
             // Double tap in other modes - ignore
@@ -738,6 +813,8 @@ void loop()
         currentDisplayMode != DISPLAY_LAP_TIMER && // Lap timer stays active
         currentDisplayMode != DISPLAY_LAP_DEBUG && // Lap debug stays active
         currentDisplayMode != DISPLAY_LAP_SPEED && // Lap speed stays active
+        currentDisplayMode != DISPLAY_RESET && // Reset menu stays active
+        currentDisplayMode != DISPLAY_RESET_CONFIRM && // Reset confirmation stays active
         countdownStartTime == 0 &&
         currentTime - lastDisplayModeChange > displayModeTimeout) {
         currentDisplayMode = DISPLAY_SPEED;
@@ -791,8 +868,9 @@ void loop()
 
 // Smart display content based on current mode
 void updateDisplayContent() {
-    if (currentState != STATE_CONNECTED) {
-        return; // Only update content when connected
+    // Allow RESET display even when not connected
+    if (currentState != STATE_CONNECTED && currentDisplayMode != DISPLAY_RESET && currentDisplayMode != DISPLAY_RESET_CONFIRM) {
+        return; // Only update content when connected (except for RESET)
     }
     
     char displayText[32];  // Increased buffer size
@@ -1077,6 +1155,20 @@ void updateDisplayContent() {
             // Show delta on line 1, lap time on line 2
             snprintf(displayText, sizeof(displayText), "%s\n%s", deltaStr.c_str(), currentLapTimeStr.c_str());
             useLargeFont = false;
+            break;
+            
+        case DISPLAY_RESET:
+            snprintf(displayText, sizeof(displayText), "RESET");
+            useLargeFont = true;
+            break;
+            
+        case DISPLAY_RESET_CONFIRM:
+            snprintf(displayText, sizeof(displayText), "SURE?");
+            useLargeFont = true;
+            // Auto-timeout after 5 seconds if no confirmation
+            if (millis() - displayModeStartTime > 5000) {
+                currentDisplayMode = DISPLAY_SPEED;
+            }
             break;
     }
     
@@ -1533,17 +1625,26 @@ static void notifyCallback(
 
 // Connection function based on working example.cpp
 bool connectToRaceBox() {
+  Serial.println("Starting connection to RaceBox...");
+  
   // Create a NimBLE client
   NimBLEClient* pClient = NimBLEDevice::createClient();
+  if (pClient == nullptr) {
+    Serial.println("Failed to create BLE client");
+    return false;
+  }
   Serial.println("Created BLE client");
   
-  // Set client callbacks
-  pClient->setClientCallbacks(new MyClientCallback());
+  // Set client callbacks - use static instance to avoid heap issues
+  static MyClientCallback clientCallback;
+  pClient->setClientCallbacks(&clientCallback);
   
   // Connect to the remote BLE Server using the device reference (not address string)
+  Serial.println("Attempting BLE connection...");
+  pClient->setConnectTimeout(10); // 10 second timeout
   if (!pClient->connect(myRaceBox)) {  // This is the key difference!
-    NimBLEDevice::deleteClient(pClient);
     Serial.println("Failed to connect using device reference");
+    NimBLEDevice::deleteClient(pClient);
     return false;
   }
   Serial.println("Connected to server");
